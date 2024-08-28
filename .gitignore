@@ -4,5 +4,4 @@
 /dvpn-client/target
 /dvpn-client/**/*.rs.bk
 /dvpn-client/node_modules
-/test-ledger
 /dvpn-client/.yarn
