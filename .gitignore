@@ -1,8 +1,8 @@
 
-.anchor
-.DS_Store
-target
-**/*.rs.bk
-node_modules
+dvpn-client/.anchor
+dvpn-client/.DS_Store
+dvpn-client/target
+dvpn-client/**/*.rs.bk
+dvpn-client/node_modules
 test-ledger
-.yarn
+dvpn-client/.yarn
