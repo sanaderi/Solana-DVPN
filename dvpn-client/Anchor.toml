@@ -5,19 +5,19 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-dvpn_client = "CJMKWoDiuQU4G2nfMGZFwAMAmkRuXH4DDeftbUaRtARq"
+dvpn_client = "HyykUKX6aEjmqktaoxLKVxnnhzHNVWg8U4XGgYrMTGHq"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "new-app.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
 [programs.devnet]
-dvpn_client = "CJMKWoDiuQU4G2nfMGZFwAMAmkRuXH4DDeftbUaRtARq"
+dvpn_client = "HyykUKX6aEjmqktaoxLKVxnnhzHNVWg8U4XGgYrMTGHq"
 
 

@@ -15,6 +15,10 @@ describe('dvpn-client', () => {
     const provider = anchor.getProvider()
     const payer = provider.wallet
 
+    const BTC_FEED = new PublicKey(
+      'HovQMDrbAgAYPCmHVSrezcSmkMtXSSUsLDFANExrZh2J'
+    )
+
     const title = 'Sample Plan'
     const expirationDate = Date.now() + 86400000 // 24 hours from now
 
@@ -23,7 +27,8 @@ describe('dvpn-client', () => {
       .accounts({
         plan: planAccount.publicKey,
         user: payer.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId
+        systemProgram: anchor.web3.SystemProgram.programId,
+        solPriceFeed: BTC_FEED
       })
       .signers([planAccount])
       .rpc()
