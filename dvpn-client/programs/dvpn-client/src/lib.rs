@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
-use chrono::{Duration, Utc};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
 declare_id!("GuNu64rJ3eudKozZtgnCK5x1AwKEoge3d6pgFJYXXLTL");
@@ -15,6 +14,9 @@ pub mod dvpn_client {
 
     // Define the 'create_plan' function
     pub fn create_plan(ctx: Context<CreatePlan>, expiration_date: i64) -> Result<()> {
+        if expiration_date < 10 {
+            return Err(ErrorCode::ExpirationTooSoon.into());
+        }
         //Retrieve solana price
         let price_update = &mut ctx.accounts.price_update;
         let price = price_update.get_price_no_older_than(
@@ -30,7 +32,8 @@ pub mod dvpn_client {
         let price_in_dollars = recieve_price * base.powf(expo);
 
         let price_per_sec: f64 = 2.0 / price_in_dollars / 2592000_f64;
-        let account_price: f64 = price_per_sec * expiration_date as f64 * 86400_f64;
+        let expire_duration = expiration_date as f64 * 86400_f64;
+        let account_price: f64 = price_per_sec * expire_duration;
         let fund_lamports: u64 = (account_price * 1000000000_f64).round() as u64;
         let pda = &mut ctx.accounts.pda_account;
         let signer = &mut ctx.accounts.user;
@@ -54,9 +57,9 @@ pub mod dvpn_client {
         let plan: &mut Account<'_, _> = &mut ctx.accounts.plan;
 
         plan.owner = *ctx.accounts.user.key;
-        let future_datetime = Utc::now() + Duration::days(expiration_date);
-        plan.expiration_date = future_datetime.timestamp();
-        // plan.expiration_date = fund_lamports as i64;
+        let clock = Clock::get()?;
+        let expire_timestamp = clock.unix_timestamp + expire_duration as i64;
+        plan.expiration_date = expire_timestamp;
 
         Ok(())
     }
@@ -85,4 +88,10 @@ pub struct CreatePlan<'info> {
 pub struct Plan {
     pub owner: Pubkey,
     pub expiration_date: i64,
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("The expiration date is less than 10 days.")]
+    ExpirationTooSoon,
 }
