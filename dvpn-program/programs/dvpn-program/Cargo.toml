@@ -1,12 +1,12 @@
 [package]
-name = "dvpn-client"
+name = "dvpn-program"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "dvpn_client"
+name = "dvpn_program"
 
 [features]
 no-entrypoint = []

@@ -741,7 +741,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dvpn-client"
+name = "dvpn-program"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",

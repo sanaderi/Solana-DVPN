@@ -2,13 +2,13 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
-declare_id!("GuNu64rJ3eudKozZtgnCK5x1AwKEoge3d6pgFJYXXLTL");
+declare_id!("6cGNiQMuBXeshM5RqXMpAdVSB1YrUN3cUZ8i5hvZrMN3");
 
 pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
 
 #[program]
-pub mod dvpn_client {
+pub mod dvpn_program {
 
     use super::*;
 
@@ -63,6 +63,21 @@ pub mod dvpn_client {
 
         Ok(())
     }
+
+    pub fn create_server(
+        ctx: Context<CreateServer>,
+        ip_address: String,
+        port_num: String,
+        connection_type: String,
+    ) -> Result<()> {
+        let server = &mut ctx.accounts.server;
+        server.owner = ctx.accounts.user.key();
+        server.ip_address = ip_address.to_string();
+        server.port_num = port_num.to_string();
+        server.connection_type = connection_type.to_string();
+
+        Ok(())
+    }
 }
 
 // Define the context for 'create_plan'
@@ -88,6 +103,24 @@ pub struct CreatePlan<'info> {
 pub struct Plan {
     pub owner: Pubkey,
     pub expiration_date: i64,
+}
+
+#[derive(Accounts)]
+pub struct CreateServer<'info> {
+    #[account(init,payer=user, space= 8 + 32 + 19 + 9 +10)]
+    // Space includes: discriminator + owner + ip address string + portNum string + connectionType string
+    pub server: Account<'info, Server>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+pub struct Server {
+    pub owner: Pubkey,
+    pub ip_address: String,      //Encrypted ip address
+    pub port_num: String,        //Encrypted port number
+    pub connection_type: String, //Encrypted connection type
 }
 
 #[error_code]

@@ -1,10 +1,10 @@
 import * as anchor from '@coral-xyz/anchor'
 import { Program } from '@coral-xyz/anchor'
-import { DvpnClient } from '../target/types/dvpn_client'
+import { DvpnClient } from '../target/types/dvpn_program'
 import { PublicKey } from '@solana/web3.js'
 import * as assert from 'assert'
 
-describe('dvpn-client', () => {
+describe('dvpn-program', () => {
   anchor.setProvider(anchor.AnchorProvider.env())
 
   const program = anchor.workspace.DvpnClient as Program<DvpnClient>
