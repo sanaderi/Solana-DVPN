@@ -7,9 +7,9 @@ This repository contains two separate projects:
    - Located in the `solana-program/` directory.
    - Developed using the [Anchor framework](https://book.anchor-lang.com/).
 
-2. **VPN Client/Server (dvpn-program):**
-   - Rust-based client/server for the decentralized VPN service.
-   - Located in the `dvpn-program/` directory.
+2. **VPN Server (dvpn-server):**
+   - Node-based server for run on server side to handle user auth
+   - Located in the `dvpn-server/` directory.
 
 ## Getting Started
 
