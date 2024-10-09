@@ -8,4 +8,4 @@
 /dvpn-program/.yarn
 /test-ledger
 /playground
-
+/dvpn-server/node_modules
