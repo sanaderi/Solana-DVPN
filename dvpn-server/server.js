@@ -1,4 +1,9 @@
 const express = require('express')
+const cors = require('cors')
+const dotenv = require('dotenv')
+// Load environment variables from .env file
+dotenv.config()
+
 // const { exec } = require('child_process');
 // const anchor = require('@project-serum/anchor');
 // const { PublicKey } = require('@solana/web3.js');
@@ -15,7 +20,11 @@ const express = require('express')
 const app = express()
 const port = 9090
 
-app.use(express.json())
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN
+  })
+)
 
 // Function to check username on Solana and create SSH user
 // async function checkAndCreateUser(username) {
@@ -76,10 +85,10 @@ app.listen(port, () => {
 })
 
 // Root route - display a simple message
-app.get('/', (req, res) => {
+app.get('/check_status', (req, res) => {
   const responseObj = {
-    message: 'Server is running on port 9090',
-    status: 'success'
+    status: 200,
+    message: 'Success'
   }
   res.json(responseObj)
 })
