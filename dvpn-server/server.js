@@ -1,4 +1,7 @@
 const express = require('express')
+const https = require('https')
+const fs = require('fs')
+const path = require('path')
 const cors = require('cors')
 const dotenv = require('dotenv')
 // Load environment variables from .env file
@@ -24,6 +27,15 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGIN
   })
+)
+
+// Load SSL certificate and key
+const sslServer = https.createServer(
+  {
+    key: fs.readFileSync(path.join(__dirname, 'cert', 'key.pem')),
+    cert: fs.readFileSync(path.join(__dirname, 'cert', 'cert.pem'))
+  },
+  app
 )
 
 // Function to check username on Solana and create SSH user
@@ -80,8 +92,9 @@ app.use(
 // cron.schedule('*/10 * * * *', sendAliveMessage);
 
 // Start the web server
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`)
+// Start the HTTPS server
+sslServer.listen(9090, () => {
+  console.log('Server running on https://localhost')
 })
 
 // Root route - display a simple message
