@@ -9,3 +9,4 @@
 /test-ledger
 /playground
 /dvpn-server/node_modules
+/dvpn-server/.env
