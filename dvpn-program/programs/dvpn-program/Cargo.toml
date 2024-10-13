@@ -18,5 +18,4 @@ default = []
 [dependencies]
 anchor-lang = "0.30.0"
 pyth-solana-receiver-sdk = "0.3.0"
-
-
+solana-program = "2.0.9"

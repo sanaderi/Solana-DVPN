@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
-declare_id!("6cGNiQMuBXeshM5RqXMpAdVSB1YrUN3cUZ8i5hvZrMN3");
+declare_id!("Arha45JCiU8tBVqFhJuYJJwGCfDNkhduzw8TSkGNcbxx");
 
 pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
@@ -78,6 +78,21 @@ pub mod dvpn_program {
 
         Ok(())
     }
+
+    pub fn update_uptime(ctx: Context<UpdateServer>) -> Result<()> {
+        let server = &mut ctx.accounts.server;
+
+        let current_time = Clock::get()?.unix_timestamp; // Get the current Unix timestamp
+
+        // Ensure at least 3600 seconds (1 hour) have passed since the last update
+        if current_time - server.last_updated < 3600 {
+            return Err(error!(ErrorCode::UpdateTooSoon));
+        }
+        server.up_time += 3600;
+        server.last_updated = current_time;
+
+        Ok(())
+    }
 }
 
 // Define the context for 'create_plan'
@@ -103,12 +118,13 @@ pub struct CreatePlan<'info> {
 pub struct Plan {
     pub owner: Pubkey,
     pub expiration_date: i64,
+    pub start_date: i64,
 }
 
 #[derive(Accounts)]
 pub struct CreateServer<'info> {
-    #[account(init,payer=user, space= 8 + 32 + 19 + 9 +10)]
-    // Space includes: discriminator + owner + ip address string + portNum string + connectionType string
+    #[account(init,payer=user, space= 8 + 32 + 19 + 9 +10 + 8 + 8)]
+    // Space includes: discriminator + owner + ip address string + portNum string + connectionType string + up_time + last_update
     pub server: Account<'info, Server>,
     #[account(mut)]
     pub user: Signer<'info>,
@@ -121,10 +137,34 @@ pub struct Server {
     pub ip_address: String,      //Encrypted ip address
     pub port_num: String,        //Encrypted port number
     pub connection_type: String, //Encrypted connection type
+    pub claimable: i64,
+    pub unclaimabe: i64,
+    pub client_count: i64,
+    pub last_client_expiry: i64,
+}
+
+#[derive(Accounts)]
+pub struct UpdateServer<'info> {
+    #[account(mut, has_one = owner)] // Ensure the correct owner is updating the server
+    pub server: Account<'info, Server>,
+    /// CHECK: This is safe because we verify that the `owner` is a signer in the relevant instructions
+    #[account(
+        mut,
+        seeds = [b"payment"], // Use your actual seeds for the PDA
+        bump,
+        signer // Mark this PDA as a signer
+    )]
+    pub owner: AccountInfo<'info>, // PDA account that pays fees
 }
 
 #[error_code]
 pub enum ErrorCode {
     #[msg("The expiration date is less than 10 days.")]
     ExpirationTooSoon,
+
+    #[msg("The server's uptime can only be updated once every 60 minutes.")]
+    UpdateTooSoon,
+
+    #[msg("Invalid owner provided.")]
+    InvalidOwner,
 }
