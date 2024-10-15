@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
-declare_id!("Arha45JCiU8tBVqFhJuYJJwGCfDNkhduzw8TSkGNcbxx");
+declare_id!("DPVrfneJ2xeneEmXNMDSHWFoA7gzkc6D97MSdxqte8hE");
 
 pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
@@ -55,15 +55,21 @@ pub mod dvpn_program {
         require_eq!(pda_balance_after, pda_balance_before + fund_lamports);
 
         let plan: &mut Account<'_, _> = &mut ctx.accounts.plan;
+        let server = &mut ctx.accounts.server;
 
         plan.owner = *ctx.accounts.user.key;
         let clock = Clock::get()?;
         let expire_timestamp = clock.unix_timestamp + expire_duration as i64;
         plan.expiration_date = expire_timestamp;
+        plan.server = server.key();
+
+        server.unclaimabe += 3600;
+        server.client_count += 1;
 
         Ok(())
     }
 
+    // Define the 'create_server' function
     pub fn create_server(
         ctx: Context<CreateServer>,
         ip_address: String,
@@ -75,21 +81,11 @@ pub mod dvpn_program {
         server.ip_address = ip_address.to_string();
         server.port_num = port_num.to_string();
         server.connection_type = connection_type.to_string();
-
-        Ok(())
-    }
-
-    pub fn update_uptime(ctx: Context<UpdateServer>) -> Result<()> {
-        let server = &mut ctx.accounts.server;
-
-        let current_time = Clock::get()?.unix_timestamp; // Get the current Unix timestamp
-
-        // Ensure at least 3600 seconds (1 hour) have passed since the last update
-        if current_time - server.last_updated < 3600 {
-            return Err(error!(ErrorCode::UpdateTooSoon));
-        }
-        server.up_time += 3600;
-        server.last_updated = current_time;
+        server.claimable = 0;
+        server.unclaimabe = 0;
+        server.client_count = 0;
+        server.start_date = 0;
+        server.last_client_expiry = 0;
 
         Ok(())
     }
@@ -101,6 +97,8 @@ pub struct CreatePlan<'info> {
     #[account(init, payer = user, space = 8 + 32 + 8 + 64)]
     // Space includes: discriminator + Pubkey + i64 + 64 bytes: For a fixed-length string field
     pub plan: Account<'info, Plan>,
+    #[account(mut)] // Ensure the correct owner is updating the server
+    pub server: Account<'info, Server>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -117,13 +115,13 @@ pub struct CreatePlan<'info> {
 #[account]
 pub struct Plan {
     pub owner: Pubkey,
+    pub server: Pubkey,
     pub expiration_date: i64,
-    pub start_date: i64,
 }
 
 #[derive(Accounts)]
 pub struct CreateServer<'info> {
-    #[account(init,payer=user, space= 8 + 32 + 19 + 9 +10 + 8 + 8)]
+    #[account(init,payer=user, space= 8 + 32 + 19 + 9 +10 + 8 + 8 + 8 + 8 + 8)]
     // Space includes: discriminator + owner + ip address string + portNum string + connectionType string + up_time + last_update
     pub server: Account<'info, Server>,
     #[account(mut)]
@@ -141,29 +139,13 @@ pub struct Server {
     pub unclaimabe: i64,
     pub client_count: i64,
     pub last_client_expiry: i64,
-}
-
-#[derive(Accounts)]
-pub struct UpdateServer<'info> {
-    #[account(mut, has_one = owner)] // Ensure the correct owner is updating the server
-    pub server: Account<'info, Server>,
-    /// CHECK: This is safe because we verify that the `owner` is a signer in the relevant instructions
-    #[account(
-        mut,
-        seeds = [b"payment"], // Use your actual seeds for the PDA
-        bump,
-        signer // Mark this PDA as a signer
-    )]
-    pub owner: AccountInfo<'info>, // PDA account that pays fees
+    pub start_date: i64,
 }
 
 #[error_code]
 pub enum ErrorCode {
     #[msg("The expiration date is less than 10 days.")]
     ExpirationTooSoon,
-
-    #[msg("The server's uptime can only be updated once every 60 minutes.")]
-    UpdateTooSoon,
 
     #[msg("Invalid owner provided.")]
     InvalidOwner,
