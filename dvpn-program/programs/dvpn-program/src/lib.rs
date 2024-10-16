@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
-declare_id!("DPVrfneJ2xeneEmXNMDSHWFoA7gzkc6D97MSdxqte8hE");
+declare_id!("BXgTH4Ff43DNtgoUHbfMUvYzXrDHknyuoYJawtd2Dun6");
 
 pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
@@ -13,7 +13,11 @@ pub mod dvpn_program {
     use super::*;
 
     // Define the 'create_plan' function
-    pub fn create_plan(ctx: Context<CreatePlan>, expiration_date: i64) -> Result<()> {
+    pub fn create_plan(
+        ctx: Context<CreatePlan>,
+        expiration_date: i64,
+        username: String,
+    ) -> Result<()> {
         if expiration_date < 10 {
             return Err(ErrorCode::ExpirationTooSoon.into());
         }
@@ -62,8 +66,11 @@ pub mod dvpn_program {
         let expire_timestamp = clock.unix_timestamp + expire_duration as i64;
         plan.expiration_date = expire_timestamp;
         plan.server = server.key();
+        plan.username = username;
 
-        server.unclaimabe += 3600;
+        server.unclaimabe += expire_duration as i64;
+        server.start_date = clock.unix_timestamp;
+        server.last_client_expiry = clock.unix_timestamp + expire_duration as i64;
         server.client_count += 1;
 
         Ok(())
@@ -94,8 +101,8 @@ pub mod dvpn_program {
 // Define the context for 'create_plan'
 #[derive(Accounts)]
 pub struct CreatePlan<'info> {
-    #[account(init, payer = user, space = 8 + 32 + 8 + 64)]
-    // Space includes: discriminator + Pubkey + i64 + 64 bytes: For a fixed-length string field
+    #[account(init, payer = user, space = 8 + 32 + 8 + 64 + 12)]
+    // Space includes: discriminator + Pubkey + i64 + 64 bytes + username: For a fixed-length string field
     pub plan: Account<'info, Plan>,
     #[account(mut)] // Ensure the correct owner is updating the server
     pub server: Account<'info, Server>,
@@ -117,6 +124,7 @@ pub struct Plan {
     pub owner: Pubkey,
     pub server: Pubkey,
     pub expiration_date: i64,
+    pub username: String,
 }
 
 #[derive(Accounts)]
