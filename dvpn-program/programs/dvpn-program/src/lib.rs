@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
-declare_id!("BXgTH4Ff43DNtgoUHbfMUvYzXrDHknyuoYJawtd2Dun6");
+declare_id!("6FNyjxTRJHGEkjQ5BdiAQJMFjcwcaFJxJBf4vwimG3vk");
 
 pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
@@ -41,7 +41,7 @@ pub mod dvpn_program {
         let fund_lamports: u64 = (account_price * 1000000000_f64).round() as u64;
         let pda = &mut ctx.accounts.pda_account;
         let signer = &mut ctx.accounts.user;
-        let system_program = &ctx.accounts.system_program;
+        let system_program: &Program<'_, System> = &ctx.accounts.system_program;
         let pda_balance_before = pda.get_lamports();
 
         transfer(
@@ -65,11 +65,14 @@ pub mod dvpn_program {
         let clock = Clock::get()?;
         let expire_timestamp = clock.unix_timestamp + expire_duration as i64;
         plan.expiration_date = expire_timestamp;
+        plan.start_date = clock.unix_timestamp;
         plan.server = server.key();
+        plan.paid_price = fund_lamports;
         plan.username = username;
 
         server.unclaimabe += expire_duration as i64;
         server.start_date = clock.unix_timestamp;
+        server.waiting_fund += fund_lamports;
         server.last_client_expiry = clock.unix_timestamp + expire_duration as i64;
         server.client_count += 1;
 
@@ -92,7 +95,41 @@ pub mod dvpn_program {
         server.unclaimabe = 0;
         server.client_count = 0;
         server.start_date = 0;
+        server.waiting_fund = 0;
         server.last_client_expiry = 0;
+
+        Ok(())
+    }
+
+    //For server claim income
+    pub fn claim_income(ctx: Context<ClaimIncome>) -> Result<()> {
+        let pda = &mut ctx.accounts.pda_account;
+        let usr = &mut ctx.accounts.user.to_account_info();
+        let server = &mut ctx.accounts.server;
+
+        let clock = Clock::get()?;
+        let total_time = server.last_client_expiry as u64 - server.start_date as u64;
+        let total_time_past = clock.unix_timestamp as u64 - server.start_date as u64;
+
+        // let system_program: &Program<'_, System> = &ctx.accounts.system_program;
+        let fund_lamports: u64 = (total_time * server.waiting_fund / total_time_past) as u64;
+        // let pda_balance_before = pda.get_lamports();
+
+        // Include the bump in the signer array
+        let signer: &[&[&[u8]]] = &[&[b"payment", &[255]]]; // Correctly include the bump
+
+        let cpi_context = CpiContext::new_with_signer(
+            ctx.accounts.system_program.to_account_info(),
+            Transfer {
+                from: pda.to_account_info(),
+                to: usr.clone(),
+            },
+            signer,
+        );
+
+        transfer(cpi_context, fund_lamports)?;
+
+        // let pda_balance_after = pda.get_lamports();
 
         Ok(())
     }
@@ -124,6 +161,8 @@ pub struct Plan {
     pub owner: Pubkey,
     pub server: Pubkey,
     pub expiration_date: i64,
+    pub start_date: i64,
+    pub paid_price: u64,
     pub username: String,
 }
 
@@ -148,6 +187,21 @@ pub struct Server {
     pub client_count: i64,
     pub last_client_expiry: i64,
     pub start_date: i64,
+    pub waiting_fund: u64,
+}
+
+#[derive(Accounts)]
+pub struct ClaimIncome<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    pub server: Account<'info, Server>,
+    #[account(
+        mut,
+        seeds = [b"payment".as_ref()],
+        bump
+    )]
+    pub pda_account: SystemAccount<'info>,
 }
 
 #[error_code]
