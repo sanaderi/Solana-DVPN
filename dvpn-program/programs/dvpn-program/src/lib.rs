@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
-declare_id!("6FNyjxTRJHGEkjQ5BdiAQJMFjcwcaFJxJBf4vwimG3vk");
+declare_id!("EQHMWmJRCK9uNSXgn2sSVf6Q6Ruq2nhJYf2MgxD9jTBW");
 
 pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
@@ -70,10 +70,11 @@ pub mod dvpn_program {
         plan.paid_price = fund_lamports;
         plan.username = username;
 
-        server.unclaimabe += expire_duration as i64;
         server.start_date = clock.unix_timestamp;
         server.waiting_fund += fund_lamports;
-        server.last_client_expiry = clock.unix_timestamp + expire_duration as i64;
+        if expire_timestamp > server.last_client_expiry {
+            server.last_client_expiry = expire_timestamp;
+        }
         server.client_count += 1;
 
         Ok(())
@@ -91,8 +92,6 @@ pub mod dvpn_program {
         server.ip_address = ip_address.to_string();
         server.port_num = port_num.to_string();
         server.connection_type = connection_type.to_string();
-        server.claimable = 0;
-        server.unclaimabe = 0;
         server.client_count = 0;
         server.start_date = 0;
         server.waiting_fund = 0;
@@ -112,22 +111,26 @@ pub mod dvpn_program {
         let total_time_past = clock.unix_timestamp as u64 - server.start_date as u64;
 
         // let system_program: &Program<'_, System> = &ctx.accounts.system_program;
-        let fund_lamports: u64 = (total_time * server.waiting_fund / total_time_past) as u64;
+        let fund_lamports: u64 = (total_time_past * server.waiting_fund / total_time) as u64;
         // let pda_balance_before = pda.get_lamports();
 
-        // Include the bump in the signer array
-        let signer: &[&[&[u8]]] = &[&[b"payment", &[255]]]; // Correctly include the bump
+        if server.waiting_fund >= fund_lamports {
+            server.waiting_fund -= fund_lamports as u64;
+            server.start_date = clock.unix_timestamp;
 
-        let cpi_context = CpiContext::new_with_signer(
-            ctx.accounts.system_program.to_account_info(),
-            Transfer {
-                from: pda.to_account_info(),
-                to: usr.clone(),
-            },
-            signer,
-        );
+            let signer: &[&[&[u8]]] = &[&[b"payment", &[255]]]; // Correctly include the bump
 
-        transfer(cpi_context, fund_lamports)?;
+            let cpi_context = CpiContext::new_with_signer(
+                ctx.accounts.system_program.to_account_info(),
+                Transfer {
+                    from: pda.to_account_info(),
+                    to: usr.clone(),
+                },
+                signer,
+            );
+
+            transfer(cpi_context, fund_lamports)?;
+        }
 
         // let pda_balance_after = pda.get_lamports();
 
@@ -182,8 +185,6 @@ pub struct Server {
     pub ip_address: String,      //Encrypted ip address
     pub port_num: String,        //Encrypted port number
     pub connection_type: String, //Encrypted connection type
-    pub claimable: i64,
-    pub unclaimabe: i64,
     pub client_count: i64,
     pub last_client_expiry: i64,
     pub start_date: i64,
@@ -195,6 +196,7 @@ pub struct ClaimIncome<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
+    #[account(mut)]
     pub server: Account<'info, Server>,
     #[account(
         mut,
