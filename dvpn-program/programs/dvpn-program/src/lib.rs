@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
-declare_id!("EQHMWmJRCK9uNSXgn2sSVf6Q6Ruq2nhJYf2MgxD9jTBW");
+declare_id!("3CV8tLFhyT4j22vJcLwSgY6YmwyHxUGkzVHukiDvYyVz");
 
 pub const MAXIMUM_AGE: u64 = 60; // One minute
 pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"; // SOL/USD price feed id from https://pyth.network/developers/price-feed-ids
@@ -118,7 +118,7 @@ pub mod dvpn_program {
             server.waiting_fund -= fund_lamports as u64;
             server.start_date = clock.unix_timestamp;
 
-            let signer: &[&[&[u8]]] = &[&[b"payment", &[255]]]; // Correctly include the bump
+            let signer: &[&[&[u8]]] = &[&[b"payment", &[ctx.bumps.pda_account]]]; // Correctly include the bump
 
             let cpi_context = CpiContext::new_with_signer(
                 ctx.accounts.system_program.to_account_info(),
